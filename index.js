@@ -1,9 +1,18 @@
 const encoder = new TextEncoder('utf-8')
 
-const accessKeyId = ACCESS_KEY_ID || ''
-const secretAccessKey = SECRET_ACCESS_KEY || ''
-const s3Region = S3_REGION || 'us-east-1'
-const s3BucketName = S3_BUCKET_NAME || ''
+let env
+
+try {
+  env = {
+    ACCESS_KEY_ID: ACCESS_KEY_ID || '',
+    SECRET_ACCESS_KEY: SECRET_ACCESS_KEY || '',
+    S3_REGION: S3_REGION || 'us-east-1',
+    S3_BUCKET_NAME: S3_BUCKET_NAME || ''
+  }
+} catch (e) {
+  console.log('Variables not yet defined. Check back when setup is complete!')
+  env = { ACCESS_KEY_ID: '', SECRET_ACCESS_KEY: '', S3_REGION: '', S3_BUCKET_NAME: '' }
+}
 
 class Algo {
   static async hmac (key, string, encoding) {
@@ -40,7 +49,8 @@ class AwsClient {
     this.secretAccessKey = secretAccessKey
     this.sessionToken = sessionToken
     this.service = service
-    this.region = region
+    this.region = env.S3_REGION
+    this.bucketName = env.S3_BUCKET_NAME
     // this.cache = cache || new Map()
   }
 
@@ -60,7 +70,7 @@ class AwsClient {
     } else {
       return new Response('Runtime error - can only sign URLs or Requests', { status: 400 })
     }
-    input.hostname = `${s3BucketName}.s3.${s3Region}.amazonaws.com`
+    input.hostname = `${this.bucketName}.s3.${this.region}.amazonaws.com`
 
     const signer = new AwsV4Signer(Object.assign({ url: input }, init, this, init && init.aws))
     const signed = Object.assign({}, init, await signer.sign())
@@ -90,7 +100,7 @@ class AwsV4Signer {
     this.secretAccessKey = secretAccessKey
     this.sessionToken = sessionToken
     this.service = 's3'
-    this.region = s3Region
+    this.region = env.S3_REGION
     this.cache = cache || new Map()
     this.datetime = datetime || new Date().toISOString().replace(/[:-]|\.\d{3}/g, '')
     this.signQuery = signQuery
@@ -242,9 +252,12 @@ class AwsV4Signer {
   }
 }
 
-const aws = new AwsClient({ accessKeyId, secretAccessKey })
+const aws = new AwsClient({ accessKeyId: env.ACCESS_KEY_ID, secretAccessKey: env.SECRET_ACCESS_KEY })
 
-addEventListener('fetch', event => event.respondWith(handle(event.request)))
+addEventListener('fetch', event => {
+  event.respondWith(handle(event.request))
+  event.passThroughOnException()
+})
 
 async function handle (request) {
   if (request.method === 'OPTIONS') {
@@ -262,5 +275,9 @@ async function handle (request) {
   /* This is the recommended method  */
   let signedRequest = await aws.sign(request)
 
-  return fetch(signedRequest)
+  let response = await fetch(signedRequest)
+  if (response.status > 400) {
+    response = new Response('Setup not yet complete!')
+  }
+  return response
 }
