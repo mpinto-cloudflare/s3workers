@@ -4,10 +4,10 @@ let env
 
 try {
   env = {
-    ACCESS_KEY_ID: ACCESS_KEY_ID || '',
-    SECRET_ACCESS_KEY: SECRET_ACCESS_KEY || '',
-    S3_REGION: S3_REGION || 'us-east-1',
-    S3_BUCKET_NAME: S3_BUCKET_NAME || ''
+    'ACCESS_KEY_ID': ACCESS_KEY_ID || '',
+    'SECRET_ACCESS_KEY': SECRET_ACCESS_KEY || '',
+    'S3_REGION': S3_REGION || 'us-east-1',
+    'S3_BUCKET_NAME': S3_BUCKET_NAME || ''
   }
 } catch (e) {
   console.log('Variables not yet defined. Check back when setup is complete!')
