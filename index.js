@@ -4,14 +4,13 @@ let env
 
 try {
   env = {
-    'ACCESS_KEY_ID': ACCESS_KEY_ID || '',
-    'SECRET_ACCESS_KEY': SECRET_ACCESS_KEY || '',
-    'S3_REGION': S3_REGION || 'us-east-1',
-    'S3_BUCKET_NAME': S3_BUCKET_NAME || ''
+    ACCESS_KEY_ID, SECRET_ACCESS_KEY, S3_REGION, S3_BUCKET_NAME
   }
 } catch (e) {
-  console.log('Variables not yet defined. Check back when setup is complete!')
-  env = { ACCESS_KEY_ID: '', SECRET_ACCESS_KEY: '', S3_REGION: '', S3_BUCKET_NAME: '' }
+  console.log(`${e}\nVariables not yet defined. Check back when setup is complete!`)
+  env = {
+    ACCESS_KEY_ID: '', SECRET_ACCESS_KEY: '', S3_REGION: '', S3_BUCKET_NAME: ''
+  }
 }
 
 class Algo {
@@ -42,19 +41,25 @@ class Algo {
 }
 
 class AwsClient {
-  constructor ({ accessKeyId, secretAccessKey, sessionToken, service, region, cache }) {
-    if (accessKeyId == null) throw new TypeError('accessKeyId is a required option')
-    if (secretAccessKey == null) throw new TypeError('secretAccessKey is a required option')
-    this.accessKeyId = accessKeyId
-    this.secretAccessKey = secretAccessKey
+  constructor (sessionToken) {
     this.sessionToken = sessionToken
-    this.service = service
-    this.region = env.S3_REGION
-    this.bucketName = env.S3_BUCKET_NAME
-    // this.cache = cache || new Map()
   }
 
-  async sign (input, init) {
+  static corsResponse (headers = null) {
+    if (!headers) {
+      return new Response('', {
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Headers': 'Content-Type,Authorization',
+          'Access-Control-Allow-Methods': 'GET,OPTIONS,POST',
+          'Access-Control-Max-Age': 86400
+        }
+      })
+    }
+    return new Response('', { headers })
+  }
+
+  static async sign (input, init) {
     let hdrs = {}
     if (typeof input === 'string') {
       console.log('true')
@@ -70,9 +75,15 @@ class AwsClient {
     } else {
       return new Response('Runtime error - can only sign URLs or Requests', { status: 400 })
     }
-    input.hostname = `${this.bucketName}.s3.${this.region}.amazonaws.com`
+    if (['us-east', 'us-east-1'].includes(env.S3_REGION)) {
+      input.hostname = `s3.amazonaws.com`
+    } else {
+      input.hostname = `s3-${env.S3_REGION}.amazonaws.com`
+    }
+    input.pathname = `/${env.S3_BUCKET_NAME}${input.pathname}`
+    console.log(input.href)
 
-    const signer = new AwsV4Signer(Object.assign({ url: input }, init, this, init && init.aws))
+    const signer = new AwsV4Signer(Object.assign({ url: input }, init, AwsClient, init && init.aws))
     const signed = Object.assign({}, init, await signer.sign())
     delete signed.aws
 
@@ -87,20 +98,12 @@ class AwsClient {
 }
 
 class AwsV4Signer {
-  constructor ({ method, url, headers, body, accessKeyId, secretAccessKey, sessionToken, service, region, cache, datetime, signQuery, appendSessionToken, allHeaders, singleEncode }) {
-    if (url == null) throw new TypeError('url is a required option')
-    if (accessKeyId == null) throw new TypeError('accessKeyId is a required option')
-    if (secretAccessKey == null) throw new TypeError('secretAccessKey is a required option')
-
+  constructor ({ method, url, headers, body, sessionToken, cache, datetime, signQuery, appendSessionToken, allHeaders, singleEncode }) {
     this.method = method || (body ? 'POST' : 'GET')
     this.url = new URL(url)
     this.headers = new Headers(headers)
     this.body = body
-    this.accessKeyId = accessKeyId
-    this.secretAccessKey = secretAccessKey
     this.sessionToken = sessionToken
-    this.service = 's3'
-    this.region = env.S3_REGION
     this.cache = cache || new Map()
     this.datetime = datetime || new Date().toISOString().replace(/[:-]|\.\d{3}/g, '')
     this.signQuery = signQuery
@@ -109,14 +112,11 @@ class AwsV4Signer {
     this.headers.delete('Host') // Can't be set in insecure env anyway
 
     const params = this.signQuery ? this.url.searchParams : this.headers
-    if (this.service === 's3' && !this.headers.has('X-Amz-Content-Sha256')) {
-      this.headers.set('X-Amz-Content-Sha256', 'UNSIGNED-PAYLOAD')
-    }
+    if (!this.headers.has('X-Amz-Content-Sha256')) this.headers.set('X-Amz-Content-Sha256', 'UNSIGNED-PAYLOAD')
 
     params.set('X-Amz-Date', this.datetime)
-    if (this.sessionToken && !this.appendSessionToken) {
-      params.set('X-Amz-Security-Token', this.sessionToken)
-    }
+
+    if (this.sessionToken && !this.appendSessionToken) params.set('X-Amz-Security-Token', this.sessionToken)
 
     // headers are always lowercase in keys()
     this.signableHeaders = ['host', ...this.headers.keys()]
@@ -131,14 +131,12 @@ class AwsV4Signer {
       .map(header => header + ':' + (header === 'host' ? this.url.host : this.headers.get(header).replace(/\s+/g, ' ')))
       .join('\n')
 
-    this.credentialString = [this.datetime.slice(0, 8), this.region, this.service, 'aws4_request'].join('/')
+    this.credentialString = [this.datetime.slice(0, 8), env.S3_REGION, 's3', 'aws4_request'].join('/')
 
     if (this.signQuery) {
-      if (this.service === 's3' && !params.has('X-Amz-Expires')) {
-        params.set('X-Amz-Expires', 86400) // 24 hours
-      }
+      if (!params.has('X-Amz-Expires')) params.set('X-Amz-Expires', 86400)
       params.set('X-Amz-Algorithm', 'AWS4-HMAC-SHA256')
-      params.set('X-Amz-Credential', this.accessKeyId + '/' + this.credentialString)
+      params.set('X-Amz-Credential', env.ACCESS_KEY_ID + '/' + this.credentialString)
       params.set('X-Amz-SignedHeaders', this.signedHeaders)
     }
 
@@ -157,10 +155,8 @@ class AwsV4Signer {
     this.encodedSearch = [...this.url.searchParams]
       .filter(([k]) => {
         if (!k) return false // no empty keys
-        if (this.service === 's3') {
-          if (seenKeys.has(k)) return false // first val only for S3
-          seenKeys.add(k)
-        }
+        if (seenKeys.has(k)) return false // first val only for S3
+        seenKeys.add(k)
         return true
       })
       .map(pair => pair.map(p => Algo.encodeRfc3986(encodeURIComponent(p))))
@@ -203,7 +199,7 @@ class AwsV4Signer {
 
   async authHeader () {
     return [
-      'AWS4-HMAC-SHA256 Credential=' + this.accessKeyId + '/' + this.credentialString,
+      'AWS4-HMAC-SHA256 Credential=' + env.ACCESS_KEY_ID + '/' + this.credentialString,
       'SignedHeaders=' + this.signedHeaders,
       'Signature=' + (await this.signature())
     ].join(', ')
@@ -211,12 +207,12 @@ class AwsV4Signer {
 
   async signature () {
     const date = this.datetime.slice(0, 8)
-    const cacheKey = [this.secretAccessKey, date, this.region, this.service].join()
+    const cacheKey = [env.SECRET_ACCESS_KEY, date, env.S3_REGION, 's3'].join()
     let kCredentials = this.cache.get(cacheKey)
     if (!kCredentials) {
-      const kDate = await Algo.hmac('AWS4' + this.secretAccessKey, date)
-      const kRegion = await Algo.hmac(kDate, this.region)
-      const kService = await Algo.hmac(kRegion, this.service)
+      const kDate = await Algo.hmac('AWS4' + env.SECRET_ACCESS_KEY, date)
+      const kRegion = await Algo.hmac(kDate, env.S3_REGION)
+      const kService = await Algo.hmac(kRegion, 's3')
       kCredentials = await Algo.hmac(kService, 'aws4_request')
       this.cache.set(cacheKey, kCredentials)
     }
@@ -244,15 +240,10 @@ class AwsV4Signer {
   }
 
   async hexBodyHash () {
-    if (this.headers.has('X-Amz-Content-Sha256')) {
-      return this.headers.get('X-Amz-Content-Sha256')
-    } else {
-      return Algo.hash(this.body || '', 'hex')
-    }
+    if (this.headers.has('X-Amz-Content-Sha256')) return this.headers.get('X-Amz-Content-Sha256')
+    return Algo.hash(this.body || '', 'hex')
   }
 }
-
-const aws = new AwsClient({ accessKeyId: env.ACCESS_KEY_ID, secretAccessKey: env.SECRET_ACCESS_KEY })
 
 addEventListener('fetch', event => {
   event.respondWith(handle(event.request))
@@ -260,24 +251,14 @@ addEventListener('fetch', event => {
 })
 
 async function handle (request) {
-  if (request.method === 'OPTIONS') {
-    return new Response('', {
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Content-Type,Authorization',
-        'Access-Control-Allow-Methods': 'GET,OPTIONS,POST',
-        'Access-Control-Max-Age': 86400
-      }
-    })
-  }
+  if (request.method === 'OPTIONS') return AwsClient.corsResponse()
 
   /* Sign the request, preserve the headers and the request body */
   /* This is the recommended method  */
-  let signedRequest = await aws.sign(request)
-
+  let signedRequest = await AwsClient.sign(request)
   let response = await fetch(signedRequest)
-  if (response.status > 400) {
-    response = new Response('Setup not yet complete!')
-  }
+
+  if (response.status > 400) response = new Response('Setup not yet complete!')
+
   return response
 }
