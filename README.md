@@ -40,9 +40,11 @@ This Worker does not specify any cache settings. Please refer to [Cloudflare's g
 > Note: if you have a more complex workflows or need to sign requests for other AWS services, please use [aws4fetch](https://github.com/mhart/aws4fetch), from which this Worker is adapted.
 
 ```js
-/* Default fetch event handler */
+/**
+ * Sign the request; don't specify any cache settings
+ */
 addEventListener('fetch', event => event.respondWith(handle(event.request)))
-
+ 
 async function handle (request) {
   if (request.method === 'OPTIONS') {
     return new Response('', {
@@ -54,39 +56,42 @@ async function handle (request) {
       }
     })
   }
-
-  /** Sign the request, preserve the headers and the request body
-   * This is the recommended method
-   * @returns a Request object
-   */
-  let signedRequest = await aws.sign(request)
-
+ 
+  let signedRequest = await AwsClient.sign(request)
+ 
   return fetch(signedRequest)
 }
-```
-
-```js
-/* Sign the request URL only */
-
+ 
+ 
 /**
- * You can just pass the request URL for signing. Note that you cannot
- * pass a second parameter to fetch(), as AWS will only accept headers that
- * are ordered in a specific way.
- * @returns a Request object
+ * Sign the request URL only
+ * You can just pass the just the eyeball request URL for signing. Note that
+ * most headers will be removed prior to the fetch() as AWS will only accept
+ * headers that are ordered in a specific way.
  */
-let signedRequest = await aws.sign(request.url)
-
-
-
-/* Cache subrequest using the cf options object */
+addEventListener('fetch', event => event.respondWith(handle(event.request)))
+ 
 async function handle (request) {
   //..
-  let signedRequest = await aws.sign(request)
-
+  let signedRequest = await AwsClient.sign(request.url)
+ 
+  return fetch(signedRequest)
+}
+ 
+ 
+/**
+ * Cache subrequest using the cf options object
+ */
+addEventListener('fetch', event => event.respondWith(handle(event.request)))
+ 
+async function handle (request) {
+  //..
+  let signedRequest = await AwsClient.sign(request.url)
+ 
   return fetch(signedRequest, {
     cf: {
-      cacheTtl: 3600, // all plans
-      cacheTtlByStatus: { // option is only available for Enterprise customers
+      cacheTtl: 3600,
+      cacheTtlByStatus: {
         "200-299": 86400,
         "404": 1,
         "500-599": 0
