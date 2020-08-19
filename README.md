@@ -13,7 +13,7 @@ This Worker is adapted from the [aws4fetch](https://github.com/mhart/aws4fetch) 
 
 - - - 
 
-### Quickstart <a name="quickstart"></a>
+### Quickstart <a name='quickstart' id='quickstart'></a>
 1. Get your security credentials from AWS here: https://console.aws.amazon.com/iam/home?#/security_credentials. You'll need the access key ID and secret access key
 2. Go to https://dash.cloudflare.com/workers/view, select `Create a Worker` and name it
 3. Paste the contents of [index.js](/index.js) in the Worker body, then press `Save and Deploy`
@@ -33,10 +33,10 @@ This Worker is adapted from the [aws4fetch](https://github.com/mhart/aws4fetch) 
 ![route.png](https://storage.franktaylor.io/d06cef5527f329e519553f649b3a76e219f2c9d6/CleanShot%202020-03-30%20at%2004.29.31@2x.png)
 
 
-### Cache <a name=“cache”></a>
+### Cache <a name='cache' id='cache'></a>
 This Worker does not specify any cache settings. Please refer to [Cloudflare's general cache documentation](https://support.cloudflare.com/hc/en-us/articles/202775670), the [Cache API](https://developers.cloudflare.com/workers/about/using-cache/#body-inner) or the Advanced Configuration section below.
 
-### Advanced  <a name=“advanced”></a>
+### Advanced  <a name='advanced' id='advanced'></a>
 > Note: if you have a more complex workflows or need to sign requests for other AWS services, please use [aws4fetch](https://github.com/mhart/aws4fetch), from which this Worker is adapted.
 
 ```js
@@ -95,7 +95,8 @@ async function handle (request) {
         "200-299": 86400,
         "404": 1,
         "500-599": 0
-      }
+      },
+      cacheKey: request.url.split('?').pop()
     }
   })
 }
