@@ -16,7 +16,7 @@ This Worker is adapted from the [aws4fetch](https://github.com/mhart/aws4fetch) 
 ### Quickstart <a name='quickstart' id='quickstart'></a>
 1. Get your security credentials from AWS here: https://console.aws.amazon.com/iam/home?#/security_credentials. You'll need the access key ID and secret access key
 2. Go to https://dash.cloudflare.com/workers/view, select `Create a Worker` and name it
-3. Paste the contents of [index.js](/index.js) in the Worker body, then press `Save and Deploy`
+3. Paste the contents of [index.js](/index.js) in the Worker body, then press `Save and Deploy`. If you need to modify the behavior of `fetch()`, skip to [the end of `index.js`](https://github.com/shagamemnon/s3workers/blob/ad74086c7b4d36b75b86f881d20ee4278839d8ec/index.js#L257)
 4. Press the back arrow and add the following environment variables (4 total):
 `ACCESS_KEY_ID [🔒 Encrypt]`, `SECRET_ACCESS_KEY [🔒 Encrypt]`, `S3_BUCKET_NAME`, and `S3_REGION`
 > For bucket name and region, here are three examples. In all cases - so long  as the client requests `/20806827090258869800702155681/IMG_8799.jpg` - the signature will be valid:
@@ -40,6 +40,12 @@ This Worker does not specify any cache settings. Please refer to [Cloudflare's g
 > Note: if you have a more complex workflows or need to sign requests for other AWS services, please use [aws4fetch](https://github.com/mhart/aws4fetch), from which this Worker is adapted.
 
 ```js
+/**
+ * All examples should replace the default Worker method here:
+ * https://github.com/shagamemnon/s3workers/blob/ad74086c7b4d36b75b86f881d20ee4278839d8ec/index.js#L257
+ */
+
+
 
 /** 
  * Example #1
