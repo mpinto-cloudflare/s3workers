@@ -40,7 +40,9 @@ This Worker does not specify any cache settings. Please refer to [Cloudflare's g
 > Note: if you have a more complex workflows or need to sign requests for other AWS services, please use [aws4fetch](https://github.com/mhart/aws4fetch), from which this Worker is adapted.
 
 ```js
-/**
+
+/** 
+ * Example #1
  * Sign the request; don't specify any cache settings
  */
 addEventListener('fetch', event => event.respondWith(handle(event.request)))
@@ -62,8 +64,11 @@ async function handle (request) {
   return fetch(signedRequest)
 }
  
- 
-/**
+
+
+
+/** 
+ * Example #2
  * Sign the request URL only
  * You can just pass the just the eyeball request URL for signing. Note that
  * most headers will be removed prior to the fetch() as AWS will only accept
@@ -79,7 +84,10 @@ async function handle (request) {
 }
  
  
-/**
+ 
+ 
+/** 
+ * Example #3
  * Cache subrequest using the cf options object
  */
 addEventListener('fetch', event => event.respondWith(handle(event.request)))
