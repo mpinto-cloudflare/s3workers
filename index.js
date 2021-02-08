@@ -1,3 +1,5 @@
+/** Skip to the bottom of this file to modify the actual fetch() **/
+
 const encoder = new TextEncoder('utf-8')
 
 let env
@@ -245,6 +247,8 @@ class AwsV4Signer {
   }
 }
 
+
+/** Modify this portion if you need to customize the request **/
 addEventListener('fetch', event => {
   event.respondWith(handle(event.request))
   event.passThroughOnException()
