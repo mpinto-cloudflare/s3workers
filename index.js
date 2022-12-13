@@ -260,7 +260,18 @@ async function handle (request) {
   /* Sign the request, preserve the headers and the request body */
   /* This is the recommended method  */
   let signedRequest = await AwsClient.sign(request)
-  let response = await fetch(signedRequest)
+  let response = await fetch(signedRequest,  {
+    cf: {
+      cacheTtl: 3600,
+      cacheTtlByStatus: {
+        "200-299": 86400,
+        "404": 1,
+        "500-599": 0
+      },
+      cacheEverything: true,
+      cacheKey: request.url.split('?').pop()
+    }
+  })
 
   if (response.status > 400) response = new Response('Setup not yet complete!')
 
